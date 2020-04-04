@@ -6,6 +6,9 @@ use std::{
     process::{self, Command},
 };
 
+// Import config so we can load image size parameter
+use crate::config;
+
 /// Abstracts a build environment and provides methods for building the kernel and creating a
 /// bootimage.
 pub struct Builder {
@@ -309,7 +312,12 @@ impl Builder {
             });
         }
 
-        // Pad to nearest block size
+        // Read the config 
+        let config = config::read_config(self.kernel_manifest_path())
+            .expect("failed to read config");
+
+        // Pad to desired size, either the specified file size or nearest block
+        // size.
         {
             const BLOCK_SIZE: u64 = 512;
             use std::fs::OpenOptions;
@@ -328,11 +336,21 @@ impl Builder {
                 })?
                 .len();
             let remainder = file_size % BLOCK_SIZE;
-            let padding = if remainder > 0 {
-                BLOCK_SIZE - remainder
-            } else {
-                0
+            let padding = match config.min_image_size_blocks {
+                Some(num_blocks) => {
+                    let file_size_blocks 
+                        = (file_size as f64 / BLOCK_SIZE as f64).ceil() as u64;
+                    (num_blocks - file_size_blocks) * BLOCK_SIZE + remainder
+                },
+                None => {
+                    if remainder > 0 {
+                        BLOCK_SIZE - remainder
+                    } else {
+                        0
+                    }
+                }
             };
+            println!("rem: {}, pad: {}", remainder, padding);
             file.set_len(file_size + padding)
                 .map_err(|err| CreateBootimageError::Io {
                     message: "failed to pad boot image to a multiple of the block size",
