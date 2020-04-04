@@ -336,11 +336,25 @@ impl Builder {
                 })?
                 .len();
             let remainder = file_size % BLOCK_SIZE;
-            let padding = match config.min_image_size_blocks {
+            let padding = match config.image_size_blocks {
                 Some(num_blocks) => {
                     let file_size_blocks 
                         = (file_size as f64 / BLOCK_SIZE as f64).ceil() as u64;
-                    (num_blocks - file_size_blocks) * BLOCK_SIZE + remainder
+
+                    // If the desired size is not large enough pad to minimum
+                    // required number of blocks greater than the file size
+                    if num_blocks < file_size_blocks {
+                        if !quiet {
+                            println!(
+                                "Desired image size ({} blocks) too small, \
+                                actual size will be {} blocks", 
+                                num_blocks, file_size_blocks);
+                        }
+                        BLOCK_SIZE - remainder
+                    }
+                    else {
+                        (num_blocks - file_size_blocks) * BLOCK_SIZE + remainder
+                    }
                 },
                 None => {
                     if remainder > 0 {
@@ -350,7 +364,6 @@ impl Builder {
                     }
                 }
             };
-            println!("rem: {}, pad: {}", remainder, padding);
             file.set_len(file_size + padding)
                 .map_err(|err| CreateBootimageError::Io {
                     message: "failed to pad boot image to a multiple of the block size",

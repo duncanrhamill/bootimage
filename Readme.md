@@ -85,6 +85,12 @@ Configuration is done through a through a `[package.metadata.bootimage]` table i
 
     # The timeout for running a test through `bootimage test` or `bootimage runner` (in seconds)
     test-timeout = 300
+
+    # The desired disk image size in number of 512 byte blocks.
+    # If not specified the disk will be aligned to the nearest block. If the 
+    # specified size is too small for the kernel the disk will be expanded to 
+    # fit the kernel.
+    img-size-blocks = 2097152 # ~ 1 Gb
 ```
 
 ## License
